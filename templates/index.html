@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Visual Intervention Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <header>
+            <h1>SPARK AI</h1>
+            <p>Upload an image and describe your desired change. The RAG system recommends an intervention and visualizes the result.</p>
+        </header>
+
+        <div class="chat-window" id="chat-window">
+            <div class="chat-message bot-message initial-message">
+                Welcome! Please upload an image and describe the issue or desired outcome to begin the RAG-powered consultation.
+            </div>
+        </div>
+        
+        <!-- NEW: Download Area (Hidden by default) -->
+        <div id="download-area" class="download-area hidden">
+            <a href="/download_report" id="download-button" class="download-button" download="AI_Intervention_Report.pdf">
+                ⬇️ Download Full Report
+            </a>
+        </div>
+        <!-- END NEW -->
+
+        <form id="input-form" class="input-area">
+            <!-- NEW: Wrap input file in a label for better styling/click area -->
+            <label for="image-upload" class="upload-label">
+                Upload Image
+            </label>
+            <input type="file" id="image-upload" name="image" accept="image/png, image/jpeg, image/webp" required>
+            <textarea id="description-input" name="description" placeholder="Describe the problem or desired intervention (e.g., 'The paint is fading, suggest a durable fix from the docs')." required></textarea>
+            <button type="submit">Analyze & Generate</button>
+        </form>
+    </div>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const form = document.getElementById('input-form');
+        const imageUpload = document.getElementById('image-upload');
+        // NEW: Get the download area element
+        const downloadArea = document.getElementById('download-area');
+
+        function displaySystemMessage(htmlContent) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message bot-message';
+            messageDiv.innerHTML = htmlContent;
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function displayUserMessage(text, imageUrl) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message user-message';
+            
+            let content = `<strong>You:</strong> ${text}`;
+            if (imageUrl) {
+                content += `<br><img src="${imageUrl}" alt="Original Image" class="chat-image-preview">`;
+            }
+            messageDiv.innerHTML = content;
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const description = document.getElementById('description-input').value;
+            const imageFile = imageUpload.files[0];
+            
+            if (!description || !imageFile) {
+                displaySystemMessage('Please provide both a description and an image.', null);
+                return;
+            }
+
+            const imageUrl = URL.createObjectURL(imageFile);
+            displayUserMessage(description, imageUrl);
+
+            // Hide the download button while processing
+            downloadArea.classList.add('hidden'); 
+
+            displaySystemMessage(`<div class="loader"></div><p>Processing RAG, generating intervention, and creating visual twin...</p>`);
+
+            const formData = new FormData();
+            formData.append('image', imageFile);
+            formData.append('description', description);
+            
+            let data;
+
+            try {
+                const response = await fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (chatWindow.lastChild && chatWindow.lastChild.querySelector('.loader')) {
+                    chatWindow.lastChild.remove(); 
+                }
+
+                // FIX: Check content type to handle non-JSON server errors
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    data = await response.json();
+                } else {
+                    const errorText = await response.text();
+                    displaySystemMessage(`<h2>❌ Critical Server Error</h2><p>The server returned an HTML error page (Python crash). Check the server console.</p><div class="prompt-detail">Raw response start: ${errorText.substring(0, 100)}...</div>`);
+                    // Ensure button remains hidden on crash
+                    downloadArea.classList.add('hidden'); 
+                    return;
+                }
+
+                if (response.ok) {
+                    const htmlContent = `
+                        <h2>✅ RAG Intervention Recommended</h2>
+                        <p><strong>Recommendation:</strong> ${data.text_response}</p>
+                        <div class="image-pair">
+                            <div class="image-box">
+                                <h3>BEFORE</h3>
+                                <img src="data:image/jpeg;base64,${data.original_image_b64}" alt="Original Image">
+                            </div>
+                            <div class="image-box">
+                                <h3>AFTER (Visual Twin)</h3>
+                                <img src="data:image/png;base64,${data.after_image_b64}" alt="Generated Image">
+                            </div>
+                        </div>
+                        <p class="prompt-detail"><strong>Image Prompt Used:</strong> <em>${data.image_prompt_used}</em></p>
+                    `;
+                    displaySystemMessage(htmlContent);
+                    // NEW: Show download button on success
+                    downloadArea.classList.remove('hidden');
+                } else {
+                    const errorMessage = data.error || 'Unknown server error (check server logs).';
+                    displaySystemMessage(`<h2>❌ API Error</h2><p>${errorMessage}</p>`);
+                    // Ensure button remains hidden on API error
+                    downloadArea.classList.add('hidden');
+                }
+
+            } catch (error) {
+                if (chatWindow.lastChild && chatWindow.lastChild.querySelector('.loader')) {
+                    chatWindow.lastChild.remove();
+                }
+                displaySystemMessage(`<h2>❌ Network Error</h2><p>Could not connect to the server: ${error.message}</p>`);
+                downloadArea.classList.add('hidden');
+            } finally {
+                document.getElementById('description-input').value = '';
+                imageUpload.value = '';
+                URL.revokeObjectURL(imageUrl);
+            }
+        });
+    </script>
+</body>
+</html>
