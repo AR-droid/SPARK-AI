@@ -9,6 +9,13 @@ google-generativeai
 google-ai-generativelanguage
 langchain-google-genai
 
+# LangChain Dependencies
+langchain
+langchain-community
+langchain-core
+langchain-google-genai
+langchain-text-splitters
+
 # Vector Database
 faiss-cpu
 
