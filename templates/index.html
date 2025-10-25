@@ -19,13 +19,12 @@
             </div>
         </div>
         
-        <!-- NEW: Download Area (Hidden by default) -->
+        <!-- Download Area (Hidden by default) -->
         <div id="download-area" class="download-area hidden">
-            <a href="/download_report" id="download-button" class="download-button" download="AI_Intervention_Report.pdf">
+            <button id="download-button" class="download-button">
                 ⬇️ Download Full Report
-            </a>
+            </button>
         </div>
-        <!-- END NEW -->
 
         <form id="input-form" class="input-area">
             <!-- NEW: Wrap input file in a label for better styling/click area -->
@@ -42,8 +41,10 @@
         const chatWindow = document.getElementById('chat-window');
         const form = document.getElementById('input-form');
         const imageUpload = document.getElementById('image-upload');
-        // NEW: Get the download area element
+        // Get the download button and area elements
+        const downloadButton = document.getElementById('download-button');
         const downloadArea = document.getElementById('download-area');
+        let currentReportData = null;
 
         function displaySystemMessage(htmlContent) {
             const messageDiv = document.createElement('div');
@@ -129,7 +130,8 @@
                         <p class="prompt-detail"><strong>Image Prompt Used:</strong> <em>${data.image_prompt_used}</em></p>
                     `;
                     displaySystemMessage(htmlContent);
-                    // NEW: Show download button on success
+                    // Show download button and store report data
+                    currentReportData = data;
                     downloadArea.classList.remove('hidden');
                 } else {
                     const errorMessage = data.error || 'Unknown server error (check server logs).';
@@ -148,6 +150,26 @@
                 document.getElementById('description-input').value = '';
                 imageUpload.value = '';
                 URL.revokeObjectURL(imageUrl);
+            }
+        });
+
+        // Handle download button click
+        downloadButton.addEventListener('click', function() {
+            if (currentReportData) {
+                // Create a temporary link to trigger the download
+                const dataStr = JSON.stringify(currentReportData);
+                const encodedData = encodeURIComponent(dataStr);
+                const url = `/download_report?data=${encodedData}`;
+                
+                // Create a temporary anchor element
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'road_safety_intervention_report.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert('No report data available to download.');
             }
         });
     </script>

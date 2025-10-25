@@ -2,10 +2,17 @@ import os
 import io
 import base64
 import json
-from flask import Flask, render_template, request, jsonify
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 from google import genai
 from google.genai import types
 from PIL import Image
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle, Image as ReportLabImage, Spacer
+from reportlab.lib import colors
 
 # --- RAG Setup Libraries (FAISS) ---
 from langchain_community.document_loaders import PyPDFLoader
@@ -15,6 +22,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # --- 1. SETUP & INITIALIZATION ---
 app = Flask(__name__)
+
+# Configuration
+app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'webp'}
+
+# Ensure upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize Gemini Client
 try:
@@ -168,6 +183,10 @@ def generate_after_image(image_prompt, original_image_bytes):
 def index():
     return render_template('index.html')
 
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 @app.route('/process', methods=['POST'])
 def process():
     if 'image' not in request.files:
@@ -178,7 +197,10 @@ def process():
 
     try:
         if not image_file or not image_file.filename:
-             return jsonify({"error": "Invalid image file uploaded."}), 400
+            return jsonify({"error": "No selected file"}), 400
+            
+        if not allowed_file(image_file.filename):
+            return jsonify({"error": "File type not allowed. Please upload a PNG, JPG, or WEBP image."}), 400
              
         image_file.seek(0) 
         original_image_bytes = image_file.read()
@@ -222,5 +244,127 @@ def process():
         print(f"UNHANDLED EXCEPTION: {e}")
         return jsonify({"error": f"An unexpected server error occurred: {e}"}), 500
 
+def generate_pdf_report(data):
+    """Generate a PDF report with analysis and before/after images."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=72, leftMargin=72,
+                          topMargin=72, bottomMargin=18)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title
+    title_style = ParagraphStyle('Title', 
+                               fontSize=24, 
+                               leading=30,
+                               alignment=1,  # Center aligned
+                               spaceAfter=30)
+    
+    elements.append(Paragraph("ROAD SAFETY INTERVENTION REPORT", title_style))
+    
+    # Date and basic info
+    date_str = datetime.now().strftime("%B %d, %Y")
+    elements.append(Paragraph(f"<b>Date:</b> {date_str}", styles['Normal']))
+    elements.append(Spacer(1, 12))
+    
+    # Analysis Section
+    elements.append(Paragraph("<b>Analysis:</b>", styles['Heading2']))
+    elements.append(Paragraph(data.get('text_response', 'No analysis available'), styles['Normal']))
+    elements.append(Spacer(1, 12))
+    
+    # Image comparison
+    elements.append(Paragraph("<b>Visual Comparison:</b>", styles['Heading2']))
+    
+    # Create a table for before/after images
+    img_width = 5 * inch
+    img_height = 4 * inch
+    
+    # Before Image
+    before_img_data = data.get('original_image_b64', '')
+    before_img = None
+    if before_img_data:
+        before_img = ReportLabImage(io.BytesIO(base64.b64decode(before_img_data)), 
+                                  width=img_width, 
+                                  height=img_height)
+    
+    # After Image
+    after_img_data = data.get('after_image_b64', '')
+    after_img = None
+    if after_img_data:
+        after_img = ReportLabImage(io.BytesIO(base64.b64decode(after_img_data)), 
+                                 width=img_width, 
+                                 height=img_height)
+    
+    # Create a table with before/after images
+    if before_img or after_img:
+        img_table_data = []
+        img_row = []
+        if before_img:
+            img_row.append(Paragraph("<b>Before</b>", styles['Normal']))
+        if after_img:
+            img_row.append(Paragraph("<b>After (Proposed Intervention)</b>", styles['Normal']))
+        img_table_data.append(img_row)
+        
+        img_row = []
+        if before_img:
+            img_row.append(before_img)
+        if after_img:
+            img_row.append(after_img)
+        img_table_data.append(img_row)
+        
+        img_table = Table(img_table_data, colWidths=[img_width] * len(img_row))
+        img_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
+        ]))
+        elements.append(img_table)
+        elements.append(Spacer(1, 12))
+    
+    # Intervention Details
+    if 'irc_recommendations' in data:
+        elements.append(Paragraph("<b>IRC Recommendations:</b>", styles['Heading2']))
+        for rec in data['irc_recommendations']:
+            elements.append(Paragraph(f"• {rec}", styles['Normal']))
+        elements.append(Spacer(1, 12))
+    
+    # Add footer
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("<i>Generated by SPARK AI - Road Safety Intervention System</i>", 
+                             styles['Italic']))
+    
+    # Build the PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and rewind it
+    pdf = buffer.getvalue()
+    buffer.close()
+    return pdf
+
+@app.route('/download_report', methods=['GET'])
+def download_report():
+    """Endpoint to download the generated PDF report."""
+    # Get report data from session or request args
+    report_data = request.args.get('data')
+    if not report_data:
+        return jsonify({"error": "No report data provided"}), 400
+    
+    try:
+        # Parse the report data
+        data = json.loads(report_data)
+        
+        # Generate the PDF
+        pdf = generate_pdf_report(data)
+        
+        # Create response
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = 'attachment; filename=road_safety_intervention_report.pdf'
+        
+        return response
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate report: {str(e)}"}), 500
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5003, host='0.0.0.0')
+    port = int(os.environ.get('PORT', 5003))
+    app.run(host='0.0.0.0', port=port)
