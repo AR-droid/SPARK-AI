@@ -24,12 +24,17 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 app = Flask(__name__)
 
 # Configuration
-app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'webp'}
 
 # Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+try:
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+except Exception as e:
+    print(f"Warning: Could not create upload directory: {e}")
+    print(f"Upload folder path: {app.config['UPLOAD_FOLDER']}")
+    print(f"Current working directory: {os.getcwd()}")
 
 # Initialize Gemini Client
 try:

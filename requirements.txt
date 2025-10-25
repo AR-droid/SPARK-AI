@@ -1,22 +1,40 @@
 # Core Dependencies
-flask
-gunicorn
-python-dotenv
+flask==2.3.3
+gunicorn==21.2.0
+python-dotenv==1.0.0
 
-# AI/ML Dependencies
-google-generativeai
-langchain-google-genai
-faiss-cpu
+# Google AI Dependencies
+--extra-index-url https://pypi.org/simple
+google-generativeai==0.3.2
+google-ai-generativelanguage==0.4.0
+langchain-google-genai==0.1.0
+
+# Vector Database
+faiss-cpu==1.7.4
+
 # Image Processing
-Pillow
-qrcode[pil]
+Pillow==10.2.0
+qrcode[pil]==7.4.2
 
 # PDF and Document Processing
-pypdf
-reportlab
-python-magic
+pypdf==3.17.4
+reportlab==4.0.4
+python-magic==0.4.27
 
 # Utilities
+python-dateutil==2.8.2
+requests==2.31.0
+Werkzeug==2.3.7
+protobuf==4.25.1
+
+# Utilities
+<<<<<<< HEAD
 python-dateutil
 requests
 Werkzeug
+=======
+python-dateutil==2.8.2
+requests==2.31.0
+Werkzeug==2.3.7
+protobuf==4.25.1
+>>>>>>> 0424834 (Add Docker support and fix deployment issues)

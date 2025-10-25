@@ -1,15 +1,17 @@
 services:
   - type: web
     name: spark-ai
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
+    env: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.9.18"
       - key: PORT
         value: 10000
       - key: GOOGLE_API_KEY
         value: your_google_api_key_here
+      - key: FLASK_ENV
+        value: production
+      - key: UPLOAD_FOLDER
+        value: "/app/uploads"
     plan: free
     autoDeploy: true
