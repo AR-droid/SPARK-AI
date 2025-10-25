@@ -4,8 +4,8 @@ import base64
 import json
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, make_response
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 from PIL import Image
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
