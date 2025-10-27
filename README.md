@@ -38,24 +38,18 @@ Displays predicted metrics such as expected crash reduction, visibility improvem
 Output Layer:
 Produces a detailed, clause-cited intervention plan along with an interactive visualization and downloadable report.
 
-Technical Stack
-Component	Technology Used
-Language Model	OpenAI GPT / Gemini API
-Knowledge Retrieval	FAISS / LangChain RAG Pipeline
-Backend Framework	Flask / FastAPI
-Frontend	Streamlit / ReactJS
-Visualization	OpenCV / Three.js / Matplotlib
-Database	SQLite / JSON Knowledge Base
-Deployment	Docker / Localhost Server
-Version Control	Git / GitHub
-Performance Metrics
-Metric	Current (Manual Audits)	SPARK AI (Proposed)	Target / Ideal
-Intervention Accuracy (%)	60	88	95
-Response Time (min)	48	9	5
-Data Coverage (%)	42	84	95
-Recommendation Confidence (%)	58	90	98
-Crash Prediction Reliability (%)	50	86	95
-Setup Instructions
+TECHNICAL STACK 
+| **Component**       | **Technology Used**            |
+| ------------------- | ------------------------------ |
+| Language Model      | OpenAI GPT / Gemini API        |
+| Knowledge Retrieval | FAISS / LangChain RAG Pipeline |
+| Backend Framework   | Flask / FastAPI                |
+| Frontend            | Streamlit / ReactJS            |
+| Visualization       | OpenCV / Three.js / Matplotlib |
+| Database            | SQLite / JSON Knowledge Base   |
+| Deployment          | Docker / Localhost Server      |
+| Version Control     | Git / GitHub                   |
+
 
 Clone the repository:
 
